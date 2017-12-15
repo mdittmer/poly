@@ -1,0 +1,59 @@
+<script>
+  window.debounceElementId = function(cls, properties, eSpec, idSpec) {
+    if (typeof eSpec === 'string') eSpec = {name: eSpec}
+    if (typeof idSpec === 'string') idSpec = {name: idSpec}
+
+    const eObserverName = `_${eSpec.name}Observer`
+    const idObserverName = `_${idSpec.name}Observer`
+    const callbackIdName = `_${idSpec.name}CallbackId`
+
+    let prototype = cls.prototype
+    prototype[eObserverName] = function(e) {
+      if (this[callbackIdName]) {
+        cancelAnimationFrame(this[callbackIdName])
+        this[callbackIdName] = 0
+      }
+      let id
+      if (!e) {
+        id = ''
+      } else {
+        id = e.id
+      }
+      if (id !== this[idSpec.name]) this[idSpec.name] = id
+    }
+    prototype[idObserverName] = function(id) {
+      console.log(idObserverName, id)
+      if (this[callbackIdName]) {
+        cancelAnimationFrame(this[callbackIdName])
+        this[callbackIdName] = 0
+      }
+      let e
+      if (!id) {
+        e = null
+      } else {
+        e = document.getElementById(id)
+        if (!e) {
+          this[callbackIdName] = requestAnimationFrame(function(id) {
+            this[callbackIdName] = 0
+            this[idObserverName](id)
+          }.bind(this, id))
+        }
+      }
+      if (e !== this[eSpec.name]) {
+        this[eSpec.name] = e
+      }
+    }
+
+    eSpec.type = eSpec.type || Object
+    eSpec.reflectToAttribute = typeof eSpec.reflectToAttribute === 'boolean' ?
+                               eSpec.reflectToAttribute : true
+    eSpec.observer = eObserverName
+    properties[eSpec.name] = eSpec
+    idSpec.type = idSpec.type || String
+    idSpec.reflectToAttribute = typeof idSpec.reflectToAttribute === 'boolean' ?
+                               idSpec.reflectToAttribute : true
+    idSpec.observer = idObserverName
+    properties[idSpec.name] = idSpec
+    return properties
+  }
+</script>

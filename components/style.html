@@ -1,0 +1,105 @@
+<script>
+  class StyleUnit {
+    constructor(name) {
+      this.name = name
+    }
+
+    toCSS () {
+      if (arguments.length === 1)
+        return `${arguments[0]}${this.name}`
+
+      return `${this.name}(${Array.from(arguments).join(', ')})`
+    }
+
+    fromComputedStyle(property, rawValue) {
+      const re = new RegExp(`^([0-9]+)${this.name}$`, 'i')
+      const match = rawValue.match(re)
+      if (match === null) return null
+      const value = parseInt(match[1], 10)
+      return new StyleValue(property, value, this)
+    }
+  }
+
+  class StyleNUnit extends StyleUnit {
+    constructor(name, delegates) {
+      super(name)
+      this.delegates = delegates
+    }
+
+    toCSS () {
+      const parts = this.delegates.map(
+        (delegate, i) => delegate.toCSS(arguments[i]))
+      return `${this.name}(${parts.join(', ')})`
+    }
+
+    fromComputedStyle(property, rawValue) {
+      const re = new RegExp(`^${this.name}\(([^)]+)\)$`, 'i')
+      const match = rawValue.match(re)
+      if (match === null) return null
+      const rawValues = match[1]
+      return new StyleValue(property,
+                            rawValues.split(',').map(value => value.trim()),
+                            this)
+    }
+  }
+
+  class StyleRangeUnit extends StyleUnit {
+    constructor(name, min, max) {
+      super(name)
+      this.min = Math.max(min, -1000000)
+      this.max = Math.min(max, 1000000)
+    }
+  }
+
+  StyleUnit.nil = new StyleUnit('')
+  StyleUnit.px = new StyleRangeUnit('px', -Infinity, Infinity)
+  StyleUnit.percent = new StyleRangeUnit('%', -1000, 1000)
+  StyleUnit.vw = new StyleRangeUnit('vw', -1000, 1000)
+  StyleUnit.vh = new StyleRangeUnit('vh', -1000, 1000)
+
+  class Style {
+    toCSS () { return '' }
+  }
+
+  class StyleProperty {
+    constructor(key, opt_units) {
+      this.key = key
+      this.units = opt_units || [StyleUnit.nil]
+    }
+
+    fromComputedStyle (cs) {
+      const rawValue = cs[this.key]
+      let value = null
+      for (const unit of this.units) {
+        value = unit.fromComputedStyle(this, rawValue)
+        if (value) return value
+      }
+
+      return null
+    }
+
+    toCSS () {
+      return `${this.key}: ${this.unit.toCSS.apply(this.unit, arguments)}; ${super.toCSS()}`
+    }
+  }
+
+  class StyleValue {
+    constructor(property, value, opt_unit) {
+      this.property = property
+      this.value = value
+      this.unit = opt_unit || property.units[0]
+    }
+
+    toCSS () {
+      if (Array.isArray(this.value)) {
+        return `${this.property.toCSS.apply(this.property, this.value)}`
+      } else {
+        return `${this.property.toCSS(this.value)}`
+      }
+    }
+  }
+
+  Style.translate3d = new StyleNUnit('translate3d', [StyleUnit.px, StyleUnit.px,
+                                                     StyleUnit.px])
+  Style.transform = new StyleProperty('transform', [Style.translate3d])
+</script>

@@ -1,0 +1,30 @@
+<link rel="import" href="contextual.html">
+
+<dom-module id="context">
+  <template>
+  </template>
+
+  <script>
+    class Context extends Contextual {
+      constructor () {
+        super()
+      }
+
+      connectedCallback () {
+        super.connectedCallback()
+
+        const attrs = Array.from(this.attributes)
+        if (attrs.length === 0) return
+
+        let X = this.getX()
+        for (const attr of attrs) {
+          try {
+            X[attr.name] = JSON.parse(attr.value)
+          } catch (e) {
+            X[attr.name] = attr.value
+          }
+        }
+      }
+    }
+  </script>
+</dom-module>

@@ -1,0 +1,140 @@
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+
+<script>
+  class Ref {
+    constructor (value) {
+      this._value = value
+      this._observers = []
+    }
+
+    getValue() {
+      return this._value
+    }
+
+    setValue(newValue) {
+      for (const observer of this._observers) {
+        observer(newValue)
+      }
+      return this._value = newValue
+    }
+
+    addObserver(observer) {
+      this.observers.push(observer)
+    }
+
+    removeObserver(observer) {
+      this.observers = this.observers.splice(this.observers.indexOf(observer),
+                                             1)
+    }
+  }
+
+  class Contextual extends window.Polymer.Element {
+    static get properties {
+      const props = {
+        _X: Object
+        _childXs: Array
+      }
+
+      const imports = Object.keys(this.imports)
+      if (imports.length > 0) props._importObservers = Array
+      for (const name in this.imports) {
+        if (!this.imports.hasOwnProperty(name)) continue
+        props[name] = this.imports[name]
+      }
+
+      return props
+    }
+
+    static get imports {
+      return {}
+    }
+
+    static get exports {
+      return {}
+    }
+
+    connectedCallback () {
+      let cls = this.constructor
+      let imported = {}
+      let exported = {}
+      let X = null
+      while (cls) {
+        // Pull imports in from context
+        if (cls.hasOwnProperty('imports')) {
+          const imports = Object.keys(cls.imports)
+          if (imports.length > 0) X = X || this.getX()
+          for (const xName of imports) {
+            const localName = imports[xName] || xName
+            if (imported[localName]) continue
+            imported[localName] = true
+            const ref = X[xName]
+            const observer = value => {
+              if (this[localName] !== value) this[localName] = value
+            }
+            ref.addObserver(observer)
+            this._importObservers.push(observer)
+          }
+        }
+        // Push exports out to context
+        if (cls.hasOwnProperty('exports')) {
+          const exports = Object.keys(cls.exports)
+          if (exports.length > 0) X = X || this.getX()
+          for (const localName of exports) {
+            const xName = exports[localName]
+            if (exported[xName]) continue
+            exported[xName] = true
+            const ref = X[xName] = X[xName] || new Ref(this[localName])
+            const observerName = `_${xName}ExportChanged`
+            this[observerName] = value => {
+              if (ref.getValue() !== value) ref.setValue(value)
+            }
+            this._createPropertyObserver(localName, observerName, true)
+          }
+        }
+        // Apply sub-class import/exports
+        cls = cls.__proto__
+      }
+    }
+
+    disconnectedCallback () {
+      if (!this._importObservers) return
+      const X = this.getX()
+      for (const observer of this._importObservers) {
+        X.removeObserver(observer)
+      }
+    }
+
+    getX () {
+      return this._X ? this._X : this._createX()
+    }
+
+    hasX () {
+      return !!this._X
+    }
+
+    createSubX(src) {
+      // TODO: Not sure this will catch all cases and/or is necessary. Should
+      // test the behaviour of DOM nodes when they get attached and detached.
+      for (const subX of this._childXs) {
+        if (subX._src.includes(src)) {
+          return subX.createSubX(src)
+        }
+      }
+
+      const subX = Object.create(this.getX())
+      subX._src = src
+      this._childXs.push(subX)
+    }
+
+    _createX () {
+      let e = this.parentElement
+      while (e) {
+        if (e.hasX && e.hasX()) {
+          return this._X = e.createSubX(this)
+        }
+        e = e.parentElement
+      }
+      return this._X = {_src: this}
+    }
+  }
+</script>

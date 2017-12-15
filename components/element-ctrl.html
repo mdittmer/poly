@@ -1,0 +1,137 @@
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="icons.html">
+<link rel="import" href="style.html">
+<link rel="import" href="debounce-element-id.html">
+
+<dom-module id="element-ctrl">
+  <template>
+    <iron-icon icon="myicons:touch-app" id="select"></iron-icon>
+    <template is="dom-if" if="{{ e }}">
+      <h1>
+        <span>{{ dataTagName }}</span>
+        <template is="dom-if" if="{{ dataId }}">
+          <span>#{{ dataId }}</span>
+        </template>
+    </template>
+  </template>
+
+  <script>
+    class ElementCtrl extends window.Polymer.Element {
+      static get is () { return 'element-ctrl' }
+
+      static get properties () {
+        const props = window.debounceElementId(this, window.debounceElementId(this, window.debounceElementId(this, {
+          dataTagName: {
+            type: String,
+            reflectToAttribute: true,
+            computed: '_computeTagName(e)',
+          },
+          styles: {
+            type: Array,
+            reflectToAttribute: true,
+          },
+          _selecting: Boolean,
+          _selectCallbackId: Number,
+          _selectedE: Object,
+          _selectHoverE: Object,
+          _selectX: Number,
+          _selectY: Number,
+        }, 'e', 'dataId'), {
+          name: 'selectableE',
+        }, 'selectableId'), 'selected', 'selectedId')
+        return props
+      }
+
+      connectedCallback () {
+        super.connectedCallback()
+        if (!this.selectableId) this.selectableE = document.documentElement
+
+        this._onSelectMove = this._onSelectMove.bind(this)
+        this._onSelectClick = this._onSelectClick.bind(this)
+        this._onSelectKey = this._onSelectKey.bind(this)
+        this._selectAnimationFrame = this._selectAnimationFrame.bind(this)
+
+        this.$.select.addEventListener('click', this._select.bind(this))
+      }
+
+      _computeTagName (e) { return e.tagName }
+
+      _select () {
+        console.log('_select')
+        if (this._selecting) return
+        console.log('_select continue')
+
+        if (this._selectedE) {
+          this._selectedE.classList.remove('selected')
+          this._selectedE = null
+        }
+
+        this._selecting = true
+        document.body.addEventListener('mousemove', this._onSelectMove)
+        document.body.addEventListener('keyup', this._onSelectKey)
+        setTimeout(() => document.body.addEventListener(
+          'click', this._onSelectClick), 0)
+        this._selectCallbackId =
+          setInterval(this._selectAnimationFrame, 150)
+      }
+
+      _selectAnimationFrame () {
+        const e  = document.elementFromPoint(this._selectX, this._selectY)
+
+        if (this._selectHoverE === e) return
+
+        if (this._selectHoverE)
+          this._selectHoverE.classList.remove('select-hover')
+
+        if (!this.selectableE.contains(e)) {
+          this._selectHoverE = null
+          return
+        }
+
+        e.classList.add('select-hover')
+        this._selectHoverE = e
+      }
+
+      _onSelectMove (e) {
+        this._selectX = e.clientX
+        this._selectY = e.clientY
+      }
+
+      _onSelectClick (e) {
+        console.log('_onSelectClick', e)
+        this._selecting = false
+        document.body.removeEventListener('mousemove', this._onSelectMove)
+        document.body.removeEventListener('click', this._onSelectClick)
+        document.body.removeEventListener('keyup', this._onSelectKey)
+
+
+        if (this._selectCallbackId) clearTimeout(this._selectCallbackId)
+        if (!this._selectHoverE) return
+        this._selectHoverE.classList.remove('select-hover')
+        this._selectHoverE.classList.add('selected')
+        this._selectedE = this._selectHoverE
+        this._selectHoverE = null
+        this._selectX = this._selectY = -1
+      }
+
+      _onSelectKey(e) {
+        console.log('_onSelectKey', e)
+        if (e.key !== 'Escape') return
+        console.log('_onSelectKey continue', e)
+
+        this._selecting = false
+        document.body.removeEventListener('mousemove', this._onSelectMove)
+        document.body.removeEventListener('click', this._onSelectClick)
+        document.body.removeEventListener('keyup', this._onSelectKey)
+
+        if (this._selectCallbackId) clearTimeout(this._selectCallbackId)
+        this._selectHoverE && this._selectHoverE.classList.remove('select-hover')
+        this._selectHoverE = null
+        this._selectX = this._selectY = -1
+      }
+    }
+
+    window.customElements.define(ElementCtrl.is, ElementCtrl)
+  </script>
+</dom-module>

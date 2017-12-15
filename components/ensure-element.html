@@ -1,0 +1,11 @@
+<script>
+  window.ensureElement = url => {
+    if (document.querySelector(`link[href='${url}']`)) {
+      return
+    }
+    let link = document.createElement('link')
+    link.setAttribute('rel', 'import')
+    link.setAttribute('href', url)
+    document.head.appendChild(link)
+  }
+</script>
